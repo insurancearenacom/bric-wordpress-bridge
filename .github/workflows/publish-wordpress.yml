@@ -62,8 +62,7 @@ jobs:
             --write-out "%{http_code}" \
             --header "Content-Type: application/json; charset=utf-8" \
             --header "User-Agent: bric-wordpress-bridge/2.0" \
-            --header "X-Bric-WP-Username: $WP_USERNAME" \
-            --header "X-Bric-WP-Password: $WP_APP_PASSWORD" \
+            --user "$WP_USERNAME:$WP_APP_PASSWORD" \
             --data "$payload" \
             "$WP_URL/wp-json/wp/v2/posts")
 
