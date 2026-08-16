@@ -25,7 +25,7 @@ permissions:
 
 concurrency:
   group: wordpress-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publish:
@@ -43,8 +43,9 @@ jobs:
           ARTICLE_STATUS: ${{ inputs.status }}
         run: |
           payload=$(jq -n --arg title "$ARTICLE_TITLE" --arg content "$ARTICLE_CONTENT" --arg status "$ARTICLE_STATUS" '{title:$title,content:$content,status:$status}')
-          response=$(curl --ipv4 --fail-with-body --silent --show-error --connect-timeout 10 --max-time 30 --retry 2 --retry-all-errors \
-            --user "$WP_USERNAME:$WP_APP_PASSWORD" \
+          response=$(curl --ipv4 --fail-with-body --silent --show-error --connect-timeout 10 --max-time 30 \
+            --header "X-Bric-WP-Username: $WP_USERNAME" \
+            --header "X-Bric-WP-Password: $WP_APP_PASSWORD" \
             --header "Content-Type: application/json; charset=utf-8" \
             --header "User-Agent: bric-wordpress-bridge/1.0" \
             --data "$payload" \
