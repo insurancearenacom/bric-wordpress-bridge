@@ -58,7 +58,7 @@ jobs:
               data=payload,
               method="POST",
               headers={
-                  "X-Bric-Bridge-Token": os.environ["BRIC_BRIDGE_TOKEN"],
+                  "Authorization": f'Bearer {os.environ["BRIC_BRIDGE_TOKEN"]}',
                   "Content-Type": "application/json; charset=utf-8",
                   "User-Agent": "bric-wordpress-bridge/1.0",
               },
