@@ -35,7 +35,7 @@ jobs:
     steps:
       - name: Pubblica tramite WordPress REST API
         env:
-          WP_URL: ${{ vars.WP_URL }}
+          WP_URL: https://www.bricdellavigna.it
           BRIC_BRIDGE_TOKEN: ${{ secrets.BRIC_BRIDGE_TOKEN }}
           ARTICLE_TITLE: ${{ inputs.title }}
           ARTICLE_CONTENT: ${{ inputs.content }}
