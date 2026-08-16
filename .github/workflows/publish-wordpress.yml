@@ -1,0 +1,74 @@
+name: Pubblica articolo WordPress
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: Titolo dell'articolo
+        required: true
+        type: string
+      content:
+        description: Contenuto HTML dell'articolo
+        required: true
+        type: string
+      status:
+        description: Stato WordPress
+        required: true
+        default: draft
+        type: choice
+        options:
+          - draft
+          - publish
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wordpress-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Invia a bricdellavigna.it
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Pubblica tramite WordPress REST API
+        env:
+          WP_URL: ${{ vars.WP_URL }}
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          ARTICLE_TITLE: ${{ inputs.title }}
+          ARTICLE_CONTENT: ${{ inputs.content }}
+          ARTICLE_STATUS: ${{ inputs.status }}
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import urllib.request
+
+          endpoint = os.environ["WP_URL"].rstrip("/") + "/wp-json/wp/v2/posts"
+          credentials = base64.b64encode(
+              f'{os.environ["WP_USERNAME"]}:{os.environ["WP_APP_PASSWORD"]}'.encode()
+          ).decode()
+          payload = json.dumps({
+              "title": os.environ["ARTICLE_TITLE"],
+              "content": os.environ["ARTICLE_CONTENT"],
+              "status": os.environ["ARTICLE_STATUS"],
+          }).encode()
+
+          request = urllib.request.Request(
+              endpoint,
+              data=payload,
+              method="POST",
+              headers={
+                  "Authorization": f"Basic {credentials}",
+                  "Content-Type": "application/json; charset=utf-8",
+                  "User-Agent": "bric-wordpress-bridge/1.0",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              result = json.load(response)
+          print(f'Articolo creato: id={result["id"]} status={result["status"]} link={result["link"]}')
+          PY
