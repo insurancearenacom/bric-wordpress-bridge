@@ -36,12 +36,14 @@ jobs:
       - name: Pubblica tramite WordPress REST API
         env:
           WP_URL: https://www.bricdellavigna.it
-          BRIC_BRIDGE_TOKEN: ${{ secrets.BRIC_BRIDGE_TOKEN }}
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
           ARTICLE_TITLE: ${{ inputs.title }}
           ARTICLE_CONTENT: ${{ inputs.content }}
           ARTICLE_STATUS: ${{ inputs.status }}
         run: |
           python - <<'PY'
+          import base64
           import json
           import os
           import urllib.request
@@ -53,12 +55,14 @@ jobs:
               "content": os.environ["ARTICLE_CONTENT"],
               "status": os.environ["ARTICLE_STATUS"],
           }).encode()
+          credentials = f'{os.environ["WP_USERNAME"]}:{os.environ["WP_APP_PASSWORD"]}'
+          authorization = base64.b64encode(credentials.encode()).decode()
           request = urllib.request.Request(
               endpoint,
               data=payload,
               method="POST",
               headers={
-                  "Authorization": f'Bearer {os.environ["BRIC_BRIDGE_TOKEN"]}',
+                  "Authorization": f"Basic {authorization}",
                   "Content-Type": "application/json; charset=utf-8",
                   "User-Agent": "bric-wordpress-bridge/1.0",
               },
