@@ -36,18 +36,37 @@ jobs:
       - name: Pubblica tramite WordPress REST API
         env:
           WP_URL: https://www.bricdellavigna.it
-          WP_USERNAME: ${{ secrets.WP_USERNAME }}
-          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          BRIC_BRIDGE_TOKEN: ${{ secrets.BRIC_BRIDGE_TOKEN }}
           ARTICLE_TITLE: ${{ inputs.title }}
           ARTICLE_CONTENT: ${{ inputs.content }}
           ARTICLE_STATUS: ${{ inputs.status }}
         run: |
-          payload=$(jq -n --arg title "$ARTICLE_TITLE" --arg content "$ARTICLE_CONTENT" --arg status "$ARTICLE_STATUS" '{title:$title,content:$content,status:$status}')
-          credentials=$(printf '%s:%s' "$WP_USERNAME" "$WP_APP_PASSWORD" | base64 -w0)
-          response=$(curl --ipv4 --fail-with-body --silent --show-error --connect-timeout 10 --max-time 30 \
-            --header "Authorization: Basic $credentials" \
+          set -Eeuo pipefail
+          : "${BRIC_BRIDGE_TOKEN:?Missing production secret BRIC_BRIDGE_TOKEN}"
+
+          payload=$(jq -n \
+            --arg title "$ARTICLE_TITLE" \
+            --arg content "$ARTICLE_CONTENT" \
+            --arg status "$ARTICLE_STATUS" \
+            '{title:$title,content:$content,status:$status}')
+
+          response_file=$(mktemp)
+          http_status=$(curl --ipv4 --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --output "$response_file" \
+            --write-out "%{http_code}" \
             --header "Content-Type: application/json; charset=utf-8" \
             --header "User-Agent: bric-wordpress-bridge/1.0" \
             --data "$payload" \
-            "$WP_URL/wp-json/wp/v2/posts")
+            "$WP_URL/wp-json/wp/v2/posts?bric_token=$BRIC_BRIDGE_TOKEN")
+          response=$(<"$response_file")
+          rm -f "$response_file"
+
+          if (( http_status < 200 || http_status >= 300 )); then
+            echo "::error::WordPress REST API returned HTTP $http_status"
+            jq -c '{code,message,data}' <<<"$response" 2>/dev/null || printf '%s\n' "$response"
+            exit 1
+          fi
+
           echo "Articolo creato: id=$(jq -r '.id' <<<"$response") status=$(jq -r '.status' <<<"$response") link=$(jq -r '.link' <<<"$response")"
