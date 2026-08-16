@@ -43,9 +43,9 @@ jobs:
           ARTICLE_STATUS: ${{ inputs.status }}
         run: |
           payload=$(jq -n --arg title "$ARTICLE_TITLE" --arg content "$ARTICLE_CONTENT" --arg status "$ARTICLE_STATUS" '{title:$title,content:$content,status:$status}')
+          credentials=$(printf '%s:%s' "$WP_USERNAME" "$WP_APP_PASSWORD" | base64 -w0)
           response=$(curl --ipv4 --fail-with-body --silent --show-error --connect-timeout 10 --max-time 30 \
-            --header "X-Bric-WP-Username: $WP_USERNAME" \
-            --header "X-Bric-WP-Password: $WP_APP_PASSWORD" \
+            --header "Authorization: Bearer $credentials" \
             --header "Content-Type: application/json; charset=utf-8" \
             --header "User-Agent: bric-wordpress-bridge/1.0" \
             --data "$payload" \
