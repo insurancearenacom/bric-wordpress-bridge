@@ -47,6 +47,7 @@ jobs:
           import json
           import os
           import urllib.request
+          from urllib.error import HTTPError
 
           endpoint = os.environ["WP_URL"].rstrip("/") + "/wp-json/wp/v2/posts"
           credentials = base64.b64encode(
@@ -57,7 +58,6 @@ jobs:
               "content": os.environ["ARTICLE_CONTENT"],
               "status": os.environ["ARTICLE_STATUS"],
           }).encode()
-
           request = urllib.request.Request(
               endpoint,
               data=payload,
@@ -68,7 +68,11 @@ jobs:
                   "User-Agent": "bric-wordpress-bridge/1.0",
               },
           )
-          with urllib.request.urlopen(request, timeout=30) as response:
-              result = json.load(response)
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  result = json.load(response)
+          except HTTPError as error:
+              print(f"WordPress HTTP {error.code}: {error.read().decode('utf-8', errors='replace')}")
+              raise
           print(f'Articolo creato: id={result["id"]} status={result["status"]} link={result["link"]}')
           PY
