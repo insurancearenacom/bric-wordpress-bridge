@@ -36,13 +36,15 @@ jobs:
       - name: Pubblica tramite WordPress REST API
         env:
           WP_URL: https://www.bricdellavigna.it
-          BRIC_BRIDGE_TOKEN: ${{ secrets.BRIC_BRIDGE_TOKEN }}
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
           ARTICLE_TITLE: ${{ inputs.title }}
           ARTICLE_CONTENT: ${{ inputs.content }}
           ARTICLE_STATUS: ${{ inputs.status }}
         run: |
           set -Eeuo pipefail
-          : "${BRIC_BRIDGE_TOKEN:?Missing production secret BRIC_BRIDGE_TOKEN}"
+          : "${WP_USERNAME:?Missing production secret WP_USERNAME}"
+          : "${WP_APP_PASSWORD:?Missing production secret WP_APP_PASSWORD}"
 
           payload=$(jq -n \
             --arg title "$ARTICLE_TITLE" \
@@ -51,17 +53,21 @@ jobs:
             '{title:$title,content:$content,status:$status}')
 
           response_file=$(mktemp)
+          trap 'rm -f "$response_file"' EXIT
+
           http_status=$(curl --ipv4 --silent --show-error \
             --connect-timeout 10 \
             --max-time 30 \
             --output "$response_file" \
             --write-out "%{http_code}" \
             --header "Content-Type: application/json; charset=utf-8" \
-            --header "User-Agent: bric-wordpress-bridge/1.0" \
+            --header "User-Agent: bric-wordpress-bridge/2.0" \
+            --header "X-Bric-WP-Username: $WP_USERNAME" \
+            --header "X-Bric-WP-Password: $WP_APP_PASSWORD" \
             --data "$payload" \
-            "$WP_URL/wp-json/wp/v2/posts?bric_token=$BRIC_BRIDGE_TOKEN")
+            "$WP_URL/wp-json/wp/v2/posts")
+
           response=$(<"$response_file")
-          rm -f "$response_file"
 
           if (( http_status < 200 || http_status >= 300 )); then
             echo "::error::WordPress REST API returned HTTP $http_status"
