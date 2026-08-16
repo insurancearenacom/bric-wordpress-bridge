@@ -36,23 +36,18 @@ jobs:
       - name: Pubblica tramite WordPress REST API
         env:
           WP_URL: ${{ vars.WP_URL }}
-          WP_USERNAME: ${{ secrets.WP_USERNAME }}
-          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          BRIC_BRIDGE_TOKEN: ${{ secrets.BRIC_BRIDGE_TOKEN }}
           ARTICLE_TITLE: ${{ inputs.title }}
           ARTICLE_CONTENT: ${{ inputs.content }}
           ARTICLE_STATUS: ${{ inputs.status }}
         run: |
           python - <<'PY'
-          import base64
           import json
           import os
           import urllib.request
           from urllib.error import HTTPError
 
           endpoint = os.environ["WP_URL"].rstrip("/") + "/wp-json/wp/v2/posts"
-          credentials = base64.b64encode(
-              f'{os.environ["WP_USERNAME"]}:{os.environ["WP_APP_PASSWORD"]}'.encode()
-          ).decode()
           payload = json.dumps({
               "title": os.environ["ARTICLE_TITLE"],
               "content": os.environ["ARTICLE_CONTENT"],
@@ -63,7 +58,7 @@ jobs:
               data=payload,
               method="POST",
               headers={
-                  "Authorization": f"Basic {credentials}",
+                  "X-Bric-Bridge-Token": os.environ["BRIC_BRIDGE_TOKEN"],
                   "Content-Type": "application/json; charset=utf-8",
                   "User-Agent": "bric-wordpress-bridge/1.0",
               },
