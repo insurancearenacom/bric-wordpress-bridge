@@ -35,33 +35,43 @@ class BridgeError(RuntimeError):
 @dataclass(frozen=True)
 class Credentials:
     base_url: str
-    username: str
-    app_password: str
+    authorization: str
 
     @classmethod
     def from_environment(cls) -> "Credentials":
-        values = {
-            "WP_URL": os.environ.get("WP_URL", "").strip(),
-            "WP_USERNAME": os.environ.get("WP_USERNAME", "").strip(),
-            "WP_APP_PASSWORD": os.environ.get("WP_APP_PASSWORD", "").strip(),
-        }
-        missing = [name for name, value in values.items() if not value]
-        if missing:
-            raise BridgeError("Missing required environment values: " + ", ".join(missing))
-        return cls(
-            base_url=values["WP_URL"].rstrip("/"),
-            username=values["WP_USERNAME"],
-            app_password=values["WP_APP_PASSWORD"],
-        )
+        base_url = os.environ.get("WP_URL", "").strip()
+        if not base_url:
+            raise BridgeError("Missing required environment value: WP_URL")
+        oidc_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "").strip()
+        oidc_request_token = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "").strip()
+        if oidc_url and oidc_request_token:
+            separator = "&" if "?" in oidc_url else "?"
+            token_url = oidc_url + separator + urllib.parse.urlencode({"audience": "bric-wordpress-bridge"})
+            request = urllib.request.Request(
+                token_url,
+                headers={"Authorization": f"Bearer {oidc_request_token}", "Accept": "application/json"},
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=20) as response:
+                    oidc_token = json.loads(response.read().decode("utf-8")).get("value", "")
+            except (urllib.error.URLError, json.JSONDecodeError) as exc:
+                raise BridgeError("Cannot obtain the GitHub OIDC identity token") from exc
+            if not oidc_token:
+                raise BridgeError("GitHub OIDC response did not contain a token")
+            return cls(base_url=base_url.rstrip("/"), authorization=f"Bearer {oidc_token}")
+
+        username = os.environ.get("WP_USERNAME", "").strip()
+        app_password = os.environ.get("WP_APP_PASSWORD", "").strip()
+        if not username or not app_password:
+            raise BridgeError("GitHub OIDC is unavailable and WordPress fallback credentials are missing")
+        token = base64.b64encode(f"{username}:{app_password}".encode("utf-8")).decode("ascii")
+        return cls(base_url=base_url.rstrip("/"), authorization=f"Basic {token}")
 
 
 class WordPressClient:
     def __init__(self, credentials: Credentials):
         self.credentials = credentials
-        token = base64.b64encode(
-            f"{credentials.username}:{credentials.app_password}".encode("utf-8")
-        ).decode("ascii")
-        self._auth_header = f"Basic {token}"
+        self._auth_header = credentials.authorization
 
     def request(
         self,
@@ -321,4 +331,3 @@ if __name__ == "__main__":
     except (BridgeError, json.JSONDecodeError) as exc:
         print(f"BRIDGE_ERROR: {exc}", file=sys.stderr)
         raise SystemExit(1)
-
