@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "title": "Titolo dell'articolo",
+  "slug": "titolo-dell-articolo",
+  "content": "<p>Testo introduttivo.</p><figure><img src=\"{{media:cover}}\" alt=\"Descrizione\"></figure>",
+  "excerpt": "Sintesi editoriale.",
+  "category": "agricoltura-rigenerativa",
+  "status": "pending",
+  "featured_media": "cover",
+  "media": [
+    {
+      "key": "cover",
+      "path": "inbox/assets/titolo-dell-articolo/cover.webp",
+      "filename": "titolo-dell-articolo-cover.webp",
+      "alt": "Descrizione accessibile dell'immagine",
+      "caption": "Didascalia e fonte"
+    }
+  ],
+  "seo": {
+    "title": "Titolo SEO da verificare in Yoast",
+    "description": "Meta descrizione da verificare in Yoast",
+    "focus_keyphrase": "frase chiave"
+  }
+}
+
