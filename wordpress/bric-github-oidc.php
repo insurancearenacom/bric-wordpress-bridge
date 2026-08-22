@@ -5,6 +5,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_filter( 'determine_current_user', 'bric_bridge_oidc_determine_user', 30 );
+add_filter( 'rest_authentication_errors', 'bric_bridge_oidc_authentication_error', 99 );
+
+$GLOBALS['bric_bridge_oidc_error'] = null;
 
 function bric_bridge_oidc_determine_user( $user_id ) {
 	if ( $user_id ) {
@@ -16,18 +19,31 @@ function bric_bridge_oidc_determine_user( $user_id ) {
 		return $user_id;
 	}
 
-	$authorization = '';
-	if ( isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
-		$authorization = trim( wp_unslash( $_SERVER['HTTP_AUTHORIZATION'] ) );
-	} elseif ( isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
-		$authorization = trim( wp_unslash( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) );
+	$token = '';
+	if ( isset( $_SERVER['HTTP_X_BRIC_GITHUB_OIDC'] ) ) {
+		$token = trim( wp_unslash( $_SERVER['HTTP_X_BRIC_GITHUB_OIDC'] ) );
+	} else {
+		$authorization = '';
+		if ( isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
+			$authorization = trim( wp_unslash( $_SERVER['HTTP_AUTHORIZATION'] ) );
+		} elseif ( isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
+			$authorization = trim( wp_unslash( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) );
+		}
+		if ( preg_match( '/^Bearer\s+([A-Za-z0-9._-]+)$/', $authorization, $matches ) ) {
+			$token = $matches[1];
+		}
 	}
-	if ( ! preg_match( '/^Bearer\s+([A-Za-z0-9._-]+)$/', $authorization, $matches ) ) {
+	if ( ! preg_match( '/^[A-Za-z0-9._-]+$/', $token ) ) {
 		return $user_id;
 	}
 
-	$claims = bric_bridge_oidc_validate_token( $matches[1] );
+	$claims = bric_bridge_oidc_validate_token( $token );
 	if ( is_wp_error( $claims ) ) {
+		$GLOBALS['bric_bridge_oidc_error'] = new WP_Error(
+			'bric_oidc_rejected',
+			$claims->get_error_code(),
+			array( 'status' => 401 )
+		);
 		return $user_id;
 	}
 
@@ -38,6 +54,13 @@ function bric_bridge_oidc_determine_user( $user_id ) {
 
 	wp_set_current_user( $user->ID );
 	return $user->ID;
+}
+
+function bric_bridge_oidc_authentication_error( $result ) {
+	if ( ! empty( $result ) ) {
+		return $result;
+	}
+	return $GLOBALS['bric_bridge_oidc_error'] ?? $result;
 }
 
 function bric_bridge_oidc_rest_route() {
