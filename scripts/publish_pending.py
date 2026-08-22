@@ -83,10 +83,15 @@ class WordPressClient:
         headers: dict[str, str] | None = None,
     ) -> Any:
         request_headers = {
-            "Authorization": self._auth_header,
             "User-Agent": "bric-wordpress-bridge/1.0",
             "Accept": "application/json",
         }
+        if self._auth_header.startswith("Bearer "):
+            # A dedicated header avoids hosting/proxy rules that consume or
+            # rewrite Authorization before WordPress sees the request.
+            request_headers["X-Bric-GitHub-OIDC"] = self._auth_header[7:]
+        else:
+            request_headers["Authorization"] = self._auth_header
         if headers:
             request_headers.update(headers)
         if payload is not None:
