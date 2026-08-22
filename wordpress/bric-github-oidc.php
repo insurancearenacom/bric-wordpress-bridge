@@ -41,7 +41,7 @@ function bric_bridge_oidc_determine_user( $user_id ) {
 	if ( is_wp_error( $claims ) ) {
 		$GLOBALS['bric_bridge_oidc_error'] = new WP_Error(
 			'bric_oidc_rejected',
-			$claims->get_error_code() . ( $claims->get_error_message() ? ': ' . $claims->get_error_message() : '' ),
+			$claims->get_error_code(),
 			array( 'status' => 401 )
 		);
 		return $user_id;
@@ -124,8 +124,12 @@ function bric_bridge_oidc_validate_token( $token ) {
 		return new WP_Error( 'bric_oidc_audience' );
 	}
 	$sub = (string) ( $claims['sub'] ?? '' );
-	if ( 0 !== strpos( $sub, 'repo:insurancearenacom/bric-wordpress-bridge:' ) ) {
-		return new WP_Error( 'bric_oidc_claim_sub', $sub );
+	$allowed_subjects = array(
+		'repo:insurancearenacom@11232036/bric-wordpress-bridge@1333923037:environment:production',
+		'repo:insurancearenacom/bric-wordpress-bridge:environment:production',
+	);
+	if ( ! in_array( $sub, $allowed_subjects, true ) ) {
+		return new WP_Error( 'bric_oidc_claim_sub' );
 	}
 	foreach ( $expected as $claim => $value ) {
 		if ( ! isset( $claims[ $claim ] ) || ! hash_equals( $value, (string) $claims[ $claim ] ) ) {
