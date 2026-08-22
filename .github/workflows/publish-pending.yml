@@ -1,0 +1,59 @@
+name: WordPress pending-review bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Operation to run
+        required: true
+        default: connection-test
+        type: choice
+        options:
+          - connection-test
+          - publish-inbox
+  push:
+    branches:
+      - main
+    paths:
+      - "inbox/*.json"
+      - "inbox/assets/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bric-wordpress-pending-bridge
+  cancel-in-progress: false
+
+jobs:
+  bridge:
+    name: Validate and send only pending posts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      WP_URL: https://www.bricdellavigna.it
+      WP_USERNAME: ${{ secrets.WP_USERNAME }}
+      WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+    steps:
+      - name: Check out bridge and article manifests
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify required secrets exist
+        shell: bash
+        run: |
+          test -n "$WP_USERNAME" || { echo "WP_USERNAME is missing in production"; exit 1; }
+          test -n "$WP_APP_PASSWORD" || { echo "WP_APP_PASSWORD is missing in production"; exit 1; }
+
+      - name: Test WordPress REST authentication
+        run: python scripts/publish_pending.py --test-connection
+
+      - name: Publish inbox as pending review
+        if: github.event_name == 'push' || inputs.mode == 'publish-inbox'
+        run: python scripts/publish_pending.py
+
