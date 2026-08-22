@@ -48,6 +48,13 @@ class ManifestValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(bridge.BridgeError, "inbox/assets"):
                 bridge.safe_repo_media_path(root, "secret.webp")
 
+    def test_rest_route_fallback_preserves_query(self):
+        fallback = bridge.rest_route_fallback("/wp-json/wp/v2/posts?slug=prova&context=edit")
+        self.assertEqual(
+            fallback,
+            "/?rest_route=%2Fwp%2Fv2%2Fposts&slug=prova&context=edit",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
