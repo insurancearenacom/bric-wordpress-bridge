@@ -114,7 +114,6 @@ function bric_bridge_oidc_validate_token( $token ) {
 	$aud_ok = is_array( $aud ) ? in_array( 'bric-wordpress-bridge', $aud, true ) : hash_equals( 'bric-wordpress-bridge', (string) $aud );
 	$expected = array(
 		'iss'           => 'https://token.actions.githubusercontent.com',
-		'sub'           => 'repo:insurancearenacom/bric-wordpress-bridge:environment:production',
 		'repository'    => 'insurancearenacom/bric-wordpress-bridge',
 		'repository_id' => '1333923037',
 		'ref'           => 'refs/heads/main',
@@ -123,6 +122,10 @@ function bric_bridge_oidc_validate_token( $token ) {
 	);
 	if ( ! $aud_ok ) {
 		return new WP_Error( 'bric_oidc_audience' );
+	}
+	$sub = (string) ( $claims['sub'] ?? '' );
+	if ( 0 !== strpos( $sub, 'repo:insurancearenacom/bric-wordpress-bridge:' ) ) {
+		return new WP_Error( 'bric_oidc_claim_sub' );
 	}
 	foreach ( $expected as $claim => $value ) {
 		if ( ! isset( $claims[ $claim ] ) || ! hash_equals( $value, (string) $claims[ $claim ] ) ) {
